@@ -429,7 +429,6 @@ namespace Microsoft.EntityFrameworkCore.Migrations.Internal
             IRelationalModel? target)
         {
             var targetMigrationsAnnotations = target?.GetAnnotations().ToList();
-
             if (source == null)
             {
                 if (targetMigrationsAnnotations?.Count > 0)
@@ -603,13 +602,17 @@ namespace Microsoft.EntityFrameworkCore.Migrations.Internal
             if (source.Schema != target.Schema
                 || source.Name != target.Name)
             {
-                yield return new RenameTableOperation
+                var renameTableOperation = new RenameTableOperation
                 {
                     Schema = source.Schema,
                     Name = source.Name,
                     NewSchema = target.Schema,
                     NewName = target.Name
                 };
+
+                renameTableOperation.AddAnnotations(source.GetAnnotations());
+
+                yield return renameTableOperation;
             }
 
             var sourceMigrationsAnnotations = source.GetAnnotations();

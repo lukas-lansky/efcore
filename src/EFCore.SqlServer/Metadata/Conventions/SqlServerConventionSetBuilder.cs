@@ -101,6 +101,10 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
                 (SharedTableConvention)new SqlServerSharedTableConvention(Dependencies, RelationalDependencies));
             conventionSet.ModelFinalizingConventions.Add(new SqlServerDbFunctionConvention(Dependencies, RelationalDependencies));
 
+            // TODO: correct order?
+            var temporalConvention = new SqlServerTemporalConvention();
+            conventionSet.EntityTypeAnnotationChangedConventions.Add(temporalConvention);
+
             ReplaceConvention(
                 conventionSet.ModelFinalizedConventions,
                 (RuntimeModelConvention)new SqlServerRuntimeModelConvention(Dependencies, RelationalDependencies));

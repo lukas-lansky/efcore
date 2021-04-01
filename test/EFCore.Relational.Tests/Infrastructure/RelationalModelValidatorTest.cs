@@ -1778,7 +1778,7 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
         {
             var modelBuilder = CreateConventionalModelBuilder();
 
-            modelBuilder.Entity<Animal>().ToTable(null);
+            modelBuilder.Entity<Animal>().ToTable((string)null);
             modelBuilder.Entity<Animal>().HasIndex(nameof(Animal.Id), nameof(Animal.Name));
 
             var definition = RelationalResources
@@ -1797,7 +1797,7 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
         {
             var modelBuilder = CreateConventionalModelBuilder();
 
-            modelBuilder.Entity<Animal>().ToTable(null);
+            modelBuilder.Entity<Animal>().ToTable((string)null);
             modelBuilder.Entity<Animal>()
                 .HasIndex(
                     new[] { nameof(Animal.Id), nameof(Animal.Name) },
@@ -1820,7 +1820,7 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
         {
             var modelBuilder = CreateConventionalModelBuilder();
 
-            modelBuilder.Entity<Animal>().ToTable(null);
+            modelBuilder.Entity<Animal>().ToTable((string)null);
             modelBuilder.Entity<Cat>().ToTable("Cats");
             modelBuilder.Entity<Cat>().HasIndex(nameof(Animal.Name), nameof(Cat.Identity));
 
@@ -1841,7 +1841,7 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
         {
             var modelBuilder = CreateConventionalModelBuilder();
 
-            modelBuilder.Entity<Animal>().ToTable(null);
+            modelBuilder.Entity<Animal>().ToTable((string)null);
             modelBuilder.Entity<Cat>().ToTable("Cats");
             modelBuilder.Entity<Cat>()
                 .HasIndex(

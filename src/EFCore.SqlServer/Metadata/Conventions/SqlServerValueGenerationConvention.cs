@@ -1,6 +1,7 @@
 // Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
 using Microsoft.EntityFrameworkCore.SqlServer.Metadata.Internal;
@@ -54,6 +55,52 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         }
 
         /// <summary>
+        ///     Called after an annotation is changed on an entity.
+        /// </summary>
+        /// <param name="entityTypeBuilder"> The builder for the entity type. </param>
+        /// <param name="name"> The annotation name. </param>
+        /// <param name="annotation"> The new annotation. </param>
+        /// <param name="oldAnnotation"> The old annotation.  </param>
+        /// <param name="context"> Additional information associated with convention execution. </param>
+        public override void ProcessEntityTypeAnnotationChanged(
+            IConventionEntityTypeBuilder entityTypeBuilder,
+            string name,
+            IConventionAnnotation? annotation,
+            IConventionAnnotation? oldAnnotation,
+            IConventionContext<IConventionAnnotation> context)
+        {
+            if ((name == SqlServerAnnotationNames.TemporalPeriodStartPropertyName
+                    || name == SqlServerAnnotationNames.TemporalPeriodEndPropertyName)
+                && annotation?.Value is string propertyName)
+            {
+                // TODO: this seems out of place here - ideally temporal convention would be creating those properties
+                // so we should just be able to use entityTypeBuilder.Metadata.GetProperty(...)
+                // but this convention runs earlier (should it?), so the temporal convention didn't have a chance to create them yet
+                var periodPropertyBuilder = entityTypeBuilder.Property(
+                    typeof(DateTime),
+                    propertyName);
+
+                if (periodPropertyBuilder != null)
+                {
+                    periodPropertyBuilder.ValueGenerated(GetValueGenerated(periodPropertyBuilder.Metadata));
+                }
+
+                // cleanup the previous period property - its possible that it won't be deleted
+                // (e.g. when removing period with default name, while the property with that same name has been explicitly defined)
+                if (oldAnnotation?.Value is string oldPropertyName)
+                {
+                    var oldPeriodProperty = entityTypeBuilder.Metadata.GetProperty(oldPropertyName);
+                    if (oldPeriodProperty != null)
+                    {
+                        oldPeriodProperty.Builder.ValueGenerated(GetValueGenerated(oldPeriodProperty));
+                    }
+                }
+            }
+
+            base.ProcessEntityTypeAnnotationChanged(entityTypeBuilder, name, annotation, oldAnnotation, context);
+        }
+
+        /// <summary>
         ///     Returns the store value generation strategy to set for the given property.
         /// </summary>
         /// <param name="property"> The property. </param>
@@ -88,9 +135,20 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
             IReadOnlyProperty property,
             in StoreObjectIdentifier storeObject,
             ITypeMappingSource typeMappingSource)
-            => RelationalValueGenerationConvention.GetValueGenerated(property, storeObject)
+            => TemporalValueGenerated(property, storeObject)
+                ?? RelationalValueGenerationConvention.GetValueGenerated(property, storeObject)
                 ?? (property.GetValueGenerationStrategy(storeObject, typeMappingSource) != SqlServerValueGenerationStrategy.None
                     ? ValueGenerated.OnAdd
                     : (ValueGenerated?)null);
+
+        private ValueGenerated? TemporalValueGenerated(IReadOnlyProperty property, in StoreObjectIdentifier storeObject)
+        {
+            var entityType = property.DeclaringEntityType;
+            return entityType.IsTemporal()
+                && (entityType.TemporalPeriodStartPropertyName() == property.Name
+                    || entityType.TemporalPeriodEndPropertyName() == property.Name)
+                ? ValueGenerated.OnAddOrUpdate
+                : null;
+        }
     }
 }

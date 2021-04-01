@@ -102,10 +102,34 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.Metadata.Internal
                 yield break;
             }
 
+            var entityType = table.EntityTypeMappings.First().EntityType;
+
             // Model validation ensures that these facets are the same on all mapped entity types
-            if (table.EntityTypeMappings.First().EntityType.IsMemoryOptimized())
+            if (entityType.IsMemoryOptimized())
             {
                 yield return new Annotation(SqlServerAnnotationNames.MemoryOptimized, true);
+            }
+
+            if (entityType.IsTemporal() && designTime)
+            {
+                yield return new Annotation(SqlServerAnnotationNames.IsTemporal, entityType.IsTemporal());
+                yield return new Annotation(SqlServerAnnotationNames.TemporalHistoryTableName, entityType.TemporalHistoryTableName());
+                yield return new Annotation(SqlServerAnnotationNames.TemporalHistoryTableSchema, entityType.TemporalHistoryTableSchema());
+
+                var storeObjectIdentifier = StoreObjectIdentifier.Table(table.Name, table.Schema);
+                var periodStartPropertyName = entityType.TemporalPeriodStartPropertyName();
+                if (periodStartPropertyName != null)
+                {
+                    var periodStartProperty = entityType.GetProperty(periodStartPropertyName);
+                    yield return new Annotation(SqlServerAnnotationNames.TemporalPeriodStartColumnName, periodStartProperty.GetColumnName(storeObjectIdentifier));
+                }
+
+                var periodEndPropertyName = entityType.TemporalPeriodEndPropertyName();
+                if (periodEndPropertyName != null)
+                {
+                    var periodEndProperty = entityType.GetProperty(entityType.TemporalPeriodEndPropertyName()!);
+                    yield return new Annotation(SqlServerAnnotationNames.TemporalPeriodEndColumnName, periodEndProperty.GetColumnName(storeObjectIdentifier));
+                }
             }
         }
 
@@ -213,6 +237,28 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.Metadata.Internal
             if (property.IsSparse() is bool isSparse)
             {
                 yield return new Annotation(SqlServerAnnotationNames.Sparse, isSparse);
+            }
+
+            var entityType = column.Table.EntityTypeMappings.First().EntityType;
+            if (entityType.IsTemporal() && designTime)
+            {
+                var periodStartPropertyName = entityType.TemporalPeriodStartPropertyName();
+                var periodEndPropertyName = entityType.TemporalPeriodEndPropertyName();
+
+                var periodStartProperty = entityType.GetProperty(periodStartPropertyName!);
+                var periodEndProperty = entityType.GetProperty(periodEndPropertyName!);
+
+                var storeObjectIdentifier = StoreObjectIdentifier.Table(table.Name, table.Schema);
+                var periodStartColumnName = periodStartProperty.GetColumnName(storeObjectIdentifier);
+                var periodEndColumnName = periodEndProperty.GetColumnName(storeObjectIdentifier);
+
+                if (column.Name == periodStartColumnName
+                    || column.Name == periodEndColumnName)
+                {
+                    yield return new Annotation(SqlServerAnnotationNames.IsTemporal, true);
+                    yield return new Annotation(SqlServerAnnotationNames.TemporalPeriodStartColumnName, periodStartColumnName);
+                    yield return new Annotation(SqlServerAnnotationNames.TemporalPeriodEndColumnName, periodEndColumnName);
+                }
             }
         }
     }
